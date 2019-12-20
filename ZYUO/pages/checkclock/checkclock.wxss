@@ -1,0 +1,7 @@
+/* pages/check clock/checkclock.wxss */
+.button{
+border-radius: 98rpx;
+background-color: rgb(245, 220, 225);
+margin-bottom:25rpx 
+
+}

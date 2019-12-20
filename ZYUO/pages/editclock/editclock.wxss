@@ -1,0 +1,7 @@
+/* pages/editclock/editclock.wxss */
+.btn4 {
+  width: 80%;
+background-color: rgb(245, 220, 225);
+  color:black;
+  border-radius: 98rpx; 
+}

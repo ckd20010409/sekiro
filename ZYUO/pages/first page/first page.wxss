@@ -1,0 +1,43 @@
+.btn1 {
+    width: 100%;
+  margin-top:62%; 
+  background-color: burlywood;
+  color: white;
+  border-radius: 98rpx;
+  line-height: 70rpx;
+  
+}
+.btn1::after {
+  border-radius: 98rpx;
+   border: none;
+}
+.btn2 {
+  width: 100%;
+  margin-top: 50%;
+ background-color: rgb(245, 220, 225);
+  color:black;
+    border-radius: 98rpx;
+    line-height: 70rpx;
+ 
+}
+.btn2::after {
+  border-radius: 98rpx;
+   border: none;
+}
+
+
+
+.backpicture{
+  background: url(http://chuantu.xyz/t6/706/1576638693x2890211662.jpg)no-repeat;  
+ position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background-size:cover;
+z-index:-1;
+}/*将图片上传，把网站替换就可，后面部分代码是对透明度和长宽度自适应的调节，或者用base64格式上传，但是过于复杂，不推荐。不建议使用本地图片上传，本地图片在手机端无法显示。
+  
+
+  
+

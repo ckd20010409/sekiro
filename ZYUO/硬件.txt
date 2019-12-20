@@ -1,0 +1,241 @@
+#include <ArduinoJson.h>
+
+
+
+
+
+
+/**
+   @example HTTPGET.ino
+   @brief The HTTPGET demo of library WeeESP8266.
+   @author Wu Pengfei<pengfei.wu@itead.cc>
+   @date 2015.03
+
+   @par Copyright:
+   Copyright (c) 2015 ITEAD Intelligent Systems Co., Ltd. \n\n
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2 of
+   the License, or (at your option) any later version. \n\n
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+   THE SOFTWARE.
+*/
+struct clock
+{
+  char am_or_pm[2];
+  char number[2];
+  char time1[2];
+  char kind[2];
+};
+#include <ESP8266.h>
+//预编译指令识别开发板
+#ifdef ESP32
+#error "This code is not recommended to run on the ESP32 platform! Please check your Tools->Board setting."
+#endif
+
+/**
+**CoreUSB UART Port: [Serial1] [D0,D1]
+**Core+ UART Port: [Serial1] [D2,D3]
+**/
+#if defined(__AVR_ATmega32U4__) || defined(__AVR_ATmega1284P__) || defined (__AVR_ATmega644P__) || defined(__AVR_ATmega128RFA1__)
+#define EspSerial Serial1
+#define UARTSPEED  115200
+#endif
+
+/**
+**通过D2D3做软串口与WiFi通信
+**Core UART Port: [SoftSerial] [D2,D3]
+**/
+#if defined (__AVR_ATmega168__) || defined (__AVR_ATmega328__) || defined (__AVR_ATmega328P__)
+#include <SoftwareSerial.h>
+SoftwareSerial mySerial(2, 3); /* RX:D2, TX:D3 */
+
+#define EspSerial mySerial
+#define UARTSPEED  9600
+#endif
+#define SSID        F("CCiPhone")//WIFI名
+#define PASSWORD    F("13071158388")//WIFI密码
+#define HOST_NAME   F("api.heclouds.com")//域名
+#define HOST_PORT   (80)
+
+
+static const byte  GETDATA[]  PROGMEM = {
+    "GET https://api.heclouds.com/devices/575740621/datapoints?datastream_id=clock1,clock2,clock3,clock4,clock5,clock6,clock7,lx&limit=1 HTTP/1.1\r\nHost:api.heclouds.com\r\napi-key:IhrNkaGYIlgscoklEssjI79T4lI=\r\nConnection: close\r\n\r\n"
+};
+
+ESP8266 wifi(&EspSerial);
+
+void setup(void)
+{
+  Serial.begin(115200);
+  while (!Serial); // wait for Leonardo enumeration, others continue immediately
+  Serial.print(F("setup begin\r\n"));
+  delay(100);
+
+  WifiInit(EspSerial, UARTSPEED);
+
+  Serial.print(F("FW Version:"));
+  Serial.println(wifi.getVersion().c_str());
+
+  if (wifi.setOprToStationSoftAP()) {
+    Serial.print(F("to station + softap ok\r\n"));
+  } else {
+    Serial.print(F("to station + softap err\r\n"));
+  }
+
+  if (wifi.joinAP(SSID, PASSWORD)) {
+    Serial.print(F("Join AP success\r\n"));
+
+    Serial.print(F("IP:"));
+    Serial.println( wifi.getLocalIP().c_str());
+  } else {
+    Serial.print(F("Join AP failure\r\n"));
+  }
+
+  if (wifi.disableMUX()) {
+    Serial.print(F("single ok\r\n"));
+  } else {
+    Serial.print(F("single err\r\n"));
+  }
+
+  Serial.print(F("setup end\r\n"));
+}
+
+void loop(void)
+{  Serial.println("护体");
+    Serial.println("护体");
+ if (wifi.createTCP(HOST_NAME, HOST_PORT)) {
+    Serial.print(F("create tcp ok\r\n"));
+  } else {
+    Serial.print(F("create tcp err\r\n"));
+  }
+
+  //char *hello = "GET / HTTP/1.0\r\nHost: www.baidu.com\r\nConnection: close\r\n\r\n";
+  //wifi.send((const uint8_t*)hello, strlen(hello));  //直接发送，为什么注释了呢？可以想一下
+
+  wifi.sendFromFlash(GETDATA, sizeof(GETDATA)); //从Flash读取发送内容，节约内存
+
+  uint8_t buffer[1142];
+  uint32_t len = wifi.recv(buffer, sizeof(buffer), 20000);
+  Serial.print(len);
+  if (len > 0) {
+    Serial.print(F("Received:["));
+    for (uint32_t i = 0; i < len; i++) {
+      Serial.print((char)buffer[i]);
+    }
+    Serial.print(F("]\r\n"));
+  }
+
+  clock clock_[7];
+  uint32_t sum=0;
+  int sum1=-1;
+  uint32_t j;
+  for(uint32_t i = 0;i<len;i++)
+  {
+    if((char)buffer[i]=='c'&&(char)buffer[i+1]=='l'&&(char)buffer[i+2]=='o'&&(char)buffer[i+3]=='c'&&(char)buffer[i+4]=='k')sum++;
+  }
+  Serial.print(sum);
+  Serial.print("\n");
+  for(uint32_t i = 0;i<len;i++)
+  {
+      if((char)buffer[i]=='a'&&(char)buffer[i+1]=='m'&&(char)buffer[i+2]=='_'&&(char)buffer[i+3]=='o'&&(char)buffer[i+4]=='r'&&(char)buffer[i+5]=='_'&&(char)buffer[i+6]=='p'&&(char)buffer[i+7]=='m')
+      {
+        sum1++;
+        j=i+11;
+        int k=0;
+        while(buffer[j]!='"')
+        {
+          clock_[sum1].am_or_pm[k]=buffer[j];
+          j++;
+          k++;
+        }
+      }
+      if((char)buffer[i]=='n'&&(char)buffer[i+1]=='u'&&(char)buffer[i+2]=='m'&&(char)buffer[i+3]=='b'&&(char)buffer[i+4]=='e'&&(char)buffer[i+5]=='r')
+      {
+        j=i+9;
+        int k=0;
+        while(buffer[j]!='"')
+        {
+          clock_[sum1].number[k]=buffer[j];
+          j++;
+          k++;
+        }
+      }
+      if((char)buffer[i]=='t'&&(char)buffer[i+1]=='i'&&(char)buffer[i+2]=='m'&&(char)buffer[i+3]=='e')
+      {
+        j=i+7;
+        int k=0;
+        while(buffer[j]!='"')
+        {
+          clock_[sum1].time1[k]=buffer[j];
+          j++;
+          k++;
+        }
+      }
+      if((char)buffer[i]=='k'&&(char)buffer[i+1]=='i'&&(char)buffer[i+2]=='n'&&(char)buffer[i+3]=='d')
+      {
+        j=i+7;
+        int k=0;
+        while(buffer[j]!='"')
+        {
+          clock_[sum1].kind[k]=buffer[j];
+          j++;
+          k++;
+        }
+      }
+  }
+  
+  for(uint32_t i = 0;i<sum;i++)
+  {
+    for(int j=0;j<2;j++)Serial.print(clock_[i].am_or_pm[j]);
+    Serial.print(" ");
+    for(int j=0;j<2;j++) Serial.print(clock_[i].number[j]);
+    Serial.print(" ");
+    for(int j=0;j<2;j++)Serial.print(clock_[i].time1[j]);
+    Serial.print(" ");
+    for(int j=0;j<2;j++)Serial.print(clock_[i].kind[j]);
+    Serial.print("\n");
+  }
+
+
+  if (wifi.releaseTCP()) {
+    Serial.print(F("release tcp ok\r\n"));
+  } else {
+    Serial.print(F("release tcp err\r\n"));
+  }
+ /*char abuffer[1000];
+   for (uint32_t i = 0; i < len; i++) {
+      abuffer[i]=(char)buffer[i];
+    }
+     
+  for (uint32_t i = 0; i < len; i++) {
+      Serial.print(abuffer[i]);
+    }
+  DynamicJsonDocument doc(500);
+    // StaticJsonDocument<500> doc;
+     DeserializationError error = deserializeJson(doc, abuffer);
+  if (error) {
+    Serial.print(F("deserializeJson() failed: "));
+    Serial.println(error.c_str());
+    return;
+  }
+const char*am_or_pm = doc["*am_or_pm"];
+long kind=doc["kind"];
+long number=doc["number"];
+long time=doc["time"];
+Serial.println(am_or_pm);
+Serial.println(kind);
+Serial.println(number);
+Serial.println(time);*/
+  //while (1);
+  delay(10000);
+  Serial.println("护体");
+  Serial.println("护体");
+}
+
+

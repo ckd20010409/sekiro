@@ -1,0 +1,15 @@
+<view class='demo-box'>
+  <navigator url="../setclock/setclock" >
+  <button class='btn1'>新建闹钟</button>
+  </navigator>
+  </view>
+<view class='demo-box'>
+  <navigator url="../checkclock/checkclock" >
+  <button  class='btn2'>查看已有闹钟</button>
+  </navigator>
+  </view>
+ 
+ 
+<view class = 'backpicture'> 
+
+</view>

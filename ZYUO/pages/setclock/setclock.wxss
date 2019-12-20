@@ -1,0 +1,8 @@
+/* pages/setclock/setclock.wxss */
+.btn3 {
+  width: 80%;
+  
+  background-color: rgb(245, 220, 225);
+  color:black;
+  border-radius: 98rpx; 
+}/* pages/setclock/setclock.wxss */

@@ -1,0 +1,106 @@
+Page({
+  data: {
+    key1: 'am_or_pm',
+    key2: 'time',
+    key3: 'kind',
+    key4: 'number',
+    key5: 'clock_sum',
+
+    radioItems: [{
+        name: '上午',
+        value: 'am'
+      },
+      {
+        name: '下午',
+        value: 'pm'
+      }
+    ],
+
+    am_or_pm_data: '',
+    time_data: '',
+    kind_data: '',
+    number_data: '',
+
+    temporary_clock_sum: 0
+  },
+  radioChange_am_or_pm: function(e) {
+    this.setData({
+      am_or_pm_data: e.detail.value
+    });
+    console.log(this.data.am_or_pm_data)
+  },
+  timeinput: function(e) {
+    this.setData({
+      time_data: e.detail.value
+    });
+    console.log(this.data.time_data)
+  },
+  kindinput: function(e) {
+    this.setData({
+      kind_data: e.detail.value
+    });
+    console.log(this.data.kind_data)
+  },
+  numberinput: function(e) {
+    this.setData({
+      number_data: e.detail.value
+    });
+    console.log(this.data.number_data)
+  },
+
+  setStorageSync: function() {
+    let key1 = this.data.key1;
+    let key2 = this.data.key2;
+    let key3 = this.data.key3;
+    let key4 = this.data.key4;
+    let key5 = this.data.key5;
+    if (this.data.am_or_pm_data == 0 || this.data.time_data == 0 || this.data.kind_data == 0 || this.data.number_data == 0) {
+      wx.showToast({
+        title: '输入内容不能为空',
+        icon: 'none'
+      })
+    } else {
+      wx.setStorageSync(key1, this.data.am_or_pm_data)
+      wx.setStorageSync(key2, this.data.time_data)
+      wx.setStorageSync(key3, this.data.kind_data)
+      wx.setStorageSync(key4, this.data.number_data)
+      //wx.setStorageSync('a', this.data.radioItems)
+      wx.showToast({
+        title: '保存成功',
+        icon: 'none'
+      })
+      var temporary_clock_sum = wx.getStorageSync(key5);
+      console.log(this.data.temporary_clock_sum);
+      if (temporary_clock_sum) {
+        this.setData({
+          temporary_clock_sum: temporary_clock_sum + 1
+        });
+      }
+      console.log(this.data.temporary_clock_sum);
+      wx.setStorageSync(key5, this.data.temporary_clock_sum)
+    }
+  }
+})
+
+
+
+
+data: {
+        obj[{
+          am_or_pm: this.data.am_or_pm_data,
+          time: this.data.time_data,
+          kind: this.data.kind_data,
+          number: this.data.number_data,
+        }
+        ]
+      }
+      this.data.clock.push(obj);
+
+
+
+
+ obj.am_or_pm = this.data.am_or_pm_data;
+      obj.time = this.data.time_data;
+      obj.kind = this.data.kind_data;
+      obj.number = this.data.number_data;
+      console.log(obj);
