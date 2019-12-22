@@ -1,0 +1,286 @@
+#include <ArduinoJson.h>
+#include <Microduino_RTC.h>
+#include <U8glib.h>//液晶显示的类库
+
+struct clock//保存闹钟信息
+{
+  char am_or_pm[2];
+  char number[2];
+  char time1[2];
+  char kind[2];
+  int time2;
+  bool disabled;
+};
+clock clock_[3];
+RTC rtc;
+int pin2 = 2;//bumper
+int pin4 = 4;// 蜂鸣器
+#define PIN_IRQ D2
+DateTime dateTime = {2019, 12, 20, 5, 16, 46, 0};
+/* 设置RTC启动时间
+ * 年, 月, 星期, 日, 时, 分, 秒 */
+#define INTERVAL_LCD             20           //定义OLED刷新时间间隔  
+unsigned long lcd_time = millis();                 //OLED刷新时间计时器
+U8GLIB_SSD1306_128X64 u8g(U8G_I2C_OPT_NONE);     //设置OLED型号  
+#define setFont_L u8g.setFont(u8g_font_7x13)
+#define setFont_M u8g.setFont(u8g_font_fixed_v0r)
+#define setFont_S u8g.setFont(u8g_font_fixed_v0r)
+
+
+#include <ESP8266.h>
+//预编译指令识别开发板
+#ifdef ESP32
+#error "This code is not recommended to run on the ESP32 platform! Please check your Tools->Board setting."
+#endif
+#if defined(__AVR_ATmega32U4__) || defined(__AVR_ATmega1284P__) || defined (__AVR_ATmega644P__) || defined(__AVR_ATmega128RFA1__)
+#define EspSerial Serial1
+#define UARTSPEED  115200
+#endif
+/**
+**通过D2D3做软串口与WiFi通信
+**Core UART Port: [SoftSerial] [D2,D3]
+**/
+#if defined (__AVR_ATmega168__) || defined (__AVR_ATmega328__) || defined (__AVR_ATmega328P__)
+#include <SoftwareSerial.h>
+SoftwareSerial mySerial(2, 3); /* RX:D2, TX:D3 */
+
+#define EspSerial mySerial
+#define UARTSPEED  9600
+#endif
+#define SSID        F("CCiPhone")//WIFI名
+#define PASSWORD    F("13071158388")//WIFI密码
+#define HOST_NAME   F("api.heclouds.com")//域名
+#define HOST_PORT   (80)
+
+static const byte  GETDATA[]  PROGMEM = {
+    "GET https://api.heclouds.com/devices/575740621/datapoints?datastream_id=clock1,clock2,clock3,clock4,clock5,clock6,clock7,lx&limit=1 HTTP/1.1\r\nHost:api.heclouds.com\r\napi-key:IhrNkaGYIlgscoklEssjI79T4lI=\r\nConnection: close\r\n\r\n"
+};// 下载数据地址
+
+ESP8266 wifi(&EspSerial);
+
+void setup()
+{
+ clock_[0].disabled=1;
+ clock_[1].disabled=1;
+ clock_[2].disabled=1;// 开启闹钟
+
+  Serial.begin(115200);
+  
+  rtc.begin();
+  rtc.clearAll();
+  rtc.setDateTime(dateTime); 
+  
+  pinMode(pin2, INPUT);//bumper
+  pinMode(pin4, OUTPUT);// 蜂鸣器
+  
+  while (!Serial); // wait for Leonardo enumeration, others continue immediately
+  Serial.print(F("setup begin\r\n"));
+  delay(100);
+ 
+  WifiInit(EspSerial, UARTSPEED);
+
+  Serial.print(F("FW Version:"));
+  Serial.println(wifi.getVersion().c_str());
+
+  if (wifi.setOprToStationSoftAP()) {
+    Serial.print(F("to station + softap ok\r\n"));
+  } else {
+    Serial.print(F("to station + softap err\r\n"));
+  }
+
+  if (wifi.joinAP(SSID, PASSWORD)) {
+    Serial.print(F("Join AP success\r\n"));
+
+    Serial.print(F("IP:"));
+    Serial.println( wifi.getLocalIP().c_str());
+  } else {
+    Serial.print(F("Join AP failure\r\n"));
+  }
+
+  if (wifi.disableMUX()) {
+    Serial.print(F("single ok\r\n"));
+  } else {
+    Serial.print(F("single err\r\n"));
+  }
+
+  Serial.print(F("setup end\r\n"));
+}//wifi连接
+
+void loop(void)
+{ 
+
+ if (wifi.createTCP(HOST_NAME, HOST_PORT)) {
+    Serial.print(F("create tcp ok\r\n"));
+  } else {
+    Serial.print(F("create tcp err\r\n"));
+  }// 建立TCP
+
+ 
+
+  wifi.sendFromFlash(GETDATA, sizeof(GETDATA)); //从Flash读取发送内容，节约内存
+
+  
+  char buffer[600];
+  uint32_t len = wifi.recv(buffer, sizeof(buffer), 20000);//存储从onenet上读取的json数组
+  Serial.print(len);
+ 
+  
+  if (len > 0) {
+    Serial.print(F("Received:["));
+    for (uint32_t i = 0; i < len; i++) {
+      Serial.print((char)buffer[i]);
+    }
+    Serial.print(F("]\r\n"));
+  }//显示从onenet上读取的json数组
+
+  
+  uint32_t sum=0;
+  int sum1=-1;//存储闹钟总数
+  uint32_t j;
+ 
+  for(uint32_t i = 0;i<len;i++)
+  {
+      if((char)buffer[i]=='a'&&(char)buffer[i+1]=='m'&&(char)buffer[i+2]=='_'&&(char)buffer[i+3]=='o'&&(char)buffer[i+4]=='r'&&(char)buffer[i+5]=='_'&&(char)buffer[i+6]=='p'&&(char)buffer[i+7]=='m')
+      {
+        sum1++;
+        j=i+11;
+        int k=0;
+        while(buffer[j]!='"')//根据json数组的格式，当找到下一个”停止截取数据
+        {
+          clock_[sum1].am_or_pm[k]=buffer[j];
+          j++;
+          k++;
+        }
+        sum++;
+      }//解析am_or_pm
+      if((char)buffer[i]=='n'&&(char)buffer[i+1]=='u'&&(char)buffer[i+2]=='m'&&(char)buffer[i+3]=='b'&&(char)buffer[i+4]=='e'&&(char)buffer[i+5]=='r')
+      {
+        j=i+9;
+        int k=0;
+        while(buffer[j]!='"')
+        {
+          clock_[sum1].number[k]=buffer[j];
+          j++;
+          k++;
+        }
+      }//解析number
+      if((char)buffer[i]=='t'&&(char)buffer[i+1]=='i'&&(char)buffer[i+2]=='m'&&(char)buffer[i+3]=='e')
+      {
+        j=i+7;
+        int k=0;
+        while(buffer[j]!='"')
+        {
+          clock_[sum1].time1[k]=buffer[j];
+          j++;
+          k++;
+        }
+      }//解析time
+      if((char)buffer[i]=='k'&&(char)buffer[i+1]=='i'&&(char)buffer[i+2]=='n'&&(char)buffer[i+3]=='d')
+      {
+        j=i+7;
+        int k=0;
+        while(buffer[j]!='"')
+        {
+          clock_[sum1].kind[k]=buffer[j];
+          j++;
+          k++;
+        }
+      }//解析kind（本次要吃的药 所在小药盒的位置）
+  }
+  //onenet上的json数组是字符格式，通过字符数组解析出需要的闹钟信息
+  
+  for(uint32_t i = 0;i<sum;i++)
+  {
+    for(int j=0;j<2;j++)Serial.print(clock_[i].am_or_pm[j]);
+    Serial.print(" ");
+    for(int j=0;j<2;j++) Serial.print(clock_[i].number[j]);
+    Serial.print(" ");
+    for(int j=0;j<2;j++)Serial.print(clock_[i].time1[j]);
+    Serial.print(" ");
+    for(int j=0;j<2;j++)Serial.print(clock_[i].kind[j]);
+    Serial.print("\n");
+  }
+  //串口打印闹钟信息，方便调试
+
+
+for(uint32_t i = 0;i<sum;i++)
+{
+  int a,b;
+  a=int(clock_[i].time1[0])-48;
+  b=int(clock_[i].time1[1])-48;//
+  clock_[i].time2=a*10+b;
+  if(clock_[i].am_or_pm[0]=='p')clock_[i].time2+=12;
+  Serial.print(clock_[i].time2);
+  Serial.print("\n");
+}//根据am、pm解析时间的字符，转换成int型，方便rtc调用
+
+    rtc.getDateTime(&dateTime);
+    Serial.print(dateTime.year);
+    Serial.print("/");
+    Serial.print(dateTime.month);
+    Serial.print("/");
+    Serial.print(dateTime.day);
+    Serial.print("     ");
+    Serial.print(dateTime.hour);
+    Serial.print(":");
+    Serial.print(dateTime.minute);
+    Serial.print(":");
+    Serial.print(dateTime.second);
+    Serial.print("\r\n");
+//打印实时的时间
+ int hour1=dateTime.hour;
+ int minute1=dateTime.minute;
+ int second1=dateTime.second;
+
+ for(int i=0;i<sum;i++)
+ {
+    if(hour1==clock_[i].time2 && clock_[i].disabled!=0)//由于是整点闹钟，判断小时与设置的闹钟相同即可
+       {u8g.firstPage();
+        do {
+               setFont_L;
+               u8g.setPrintPos(10,20);
+               u8g.print("position:");
+               //u8g.setPrintPos(65,20);
+               u8g.print(clock_[i].kind[0]);
+               u8g.print(clock_[i].kind[1]);
+               u8g.setPrintPos(10,40);
+               u8g.print("number:");
+               //u8g.setPrintPos(60,40);
+               u8g.print(clock_[i].number[0]);
+               u8g.print(clock_[i].number[1]);
+               u8g.setPrintPos(10,60);
+               u8g.print("time:");
+               u8g.print(clock_[i].am_or_pm[0]);
+               u8g.print(clock_[i].am_or_pm[1]);
+               u8g.setPrintPos(60,60);
+               u8g.print(clock_[i].time1[0]);
+               u8g.print(clock_[i].time1[1]);
+         }while (u8g.nextPage());
+    int bumper=1;
+    while(bumper==1)//不触碰bumper，一直处于报警状态
+    {
+      bumper=digitalRead(pin2);
+      tone(pin4,700); //蜂鸣器报警
+      Serial.print("~~");
+      delay(200);
+     }
+     noTone(pin4);//关闭蜂鸣器
+     u8g.firstPage();
+     clock_[i].disabled=0;//禁用闹钟
+     Serial.print("闹钟关闭");
+  }
+  if(hour1==clock_[i].time2+1)
+  {
+    clock_[i].disabled=1;//在下一个小时，恢复闹钟的启用
+  }
+}
+
+if (wifi.releaseTCP()) {
+    Serial.print(F("release tcp ok\r\n"));
+  } else {
+    Serial.print(F("release tcp err\r\n"));
+  }
+ 
+}
+
+
